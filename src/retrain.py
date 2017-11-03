@@ -703,6 +703,8 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
                                         [None, class_count],
                                         name='GroundTruthInput')
 
+  logits = tf.nn.dropout(bottleneck_input, keep_prob)
+
   # Organizing the following ops as `final_training_ops` so they're easier
   # to see in TensorBoard
   layer_name = 'final_training_ops_0'
@@ -711,18 +713,18 @@ def add_final_training_ops(class_count, final_tensor_name, bottleneck_tensor,
       initial_value_0 = tf.truncated_normal(
           [bottleneck_tensor_size, bottleneck_tensor_size], stddev=0.001)
 
-      layer_weights_0 = tf.Variable(initial_value_0, name='final_weights')
+      layer_weights_0 = tf.Variable(initial_value_0, name='final_weights_0')
 
       variable_summaries(layer_weights_0)
     with tf.name_scope('biases'):
-      layer_biases_0 = tf.Variable(tf.zeros([bottleneck_tensor_size]), name='final_biases')
+      layer_biases_0 = tf.Variable(tf.zeros([bottleneck_tensor_size]), name='final_biases_0')
       variable_summaries(layer_biases_0)
     with tf.name_scope('Wx_plus_b'):
-      logits = tf.matmul(bottleneck_input, layer_weights_0) + layer_biases_0
+      logits = tf.matmul(logits, layer_weights_0) + layer_biases_0
      # tf.summary.histogram('pre_activations', logits)
 
   logits = tf.nn.relu(logits)
-  logits = tf.nn.dropout(logits, keep_prob, name='keep_prob')
+  logits = tf.nn.dropout(logits, keep_prob)
   ####
   layer_name = 'final_training_ops'
   with tf.name_scope(layer_name):
@@ -950,7 +952,12 @@ def main(_):
   do_distort_images = should_distort_images(
       FLAGS.flip_left_right, FLAGS.random_crop, FLAGS.random_scale,
       FLAGS.random_brightness)
-
+  
+  #tf.logging.info(', '.join(image_lists.keys()))
+  # write the labels file early for use with the checkpoints
+  with gfile.FastGFile(FLAGS.output_labels, 'w') as f:
+    f.write('\n'.join(image_lists.keys()) + '\n')
+  
   with tf.Session(graph=graph) as sess:
     # Set up the image decoding sub-graph.
     jpeg_data_tensor, decoded_image_tensor = add_jpeg_decoding(
@@ -974,7 +981,7 @@ def main(_):
                         decoded_image_tensor, resized_image_tensor,
                         bottleneck_tensor, FLAGS.architecture)
 
-    keep_prob = tf.placeholder(tf.float32)
+    keep_prob = tf.placeholder(tf.float32, name='keep_prob')
     # Add the new layer that we'll be training.
     (train_step, cross_entropy, bottleneck_input, ground_truth_input,
      final_tensor) = add_final_training_ops(
@@ -1086,11 +1093,8 @@ def main(_):
                           (test_filename,
                            list(image_lists.keys())[predictions[i]]))
 
-    # Write out the trained graph and labels with the weights stored as
-    # constants.
+    # Write out the trained graph with the weights stored as constants.
     save_graph_to_file(sess, graph, FLAGS.output_graph)
-    with gfile.FastGFile(FLAGS.output_labels, 'w') as f:
-      f.write('\n'.join(image_lists.keys()) + '\n')
 
 
 if __name__ == '__main__':

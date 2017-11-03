@@ -6,11 +6,11 @@ python scripts/train_model.py \
 --validation_batch_size -1 \
 --how_many_training_steps 4000 \
 --architecture 'mobilenet_1.0_224' \
---keep_probability 0.5 \
+--keep_probabilities 0.5 \
 --learning_rate 1e-2 \
 --test_batch_size=-1 \
 --intermediate_output_graphs_dir model/checkpoints \
 --intermediate_store_frequency 100 \
---output_graph model/final_graph \
+--output_graph model/final_graph.pb \
 --print_misclassified_test_images
 #> model/train.log 2>&1 &
