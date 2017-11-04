@@ -10,7 +10,7 @@ We have considered different approaches to solve the traffic light classificatio
 *  object (traffic light in state) detection;  
 *  object (traffic light) detection and classification using separate model.  
 
-Considering the fact that traffic lights are always in the same state, and focusing on the creation of a lightweight and fast model, we've chosen the direction of classifying the entire image. This approach uses a Convolutional Neural Network, which takes a whole image from the front camera as an input and predicts the traffic light state (we've decided to use Red / None prediction classes) as an output. We used the transfer learning technique on the MobileNet architecture with the Tensorflow Image Retraining Example (tutorial: https://goo.gl/HgmiVo, code: https://goo.gl/KdVcMi).
+Considering the fact that traffic lights are always in the same state, and focusing on the creation of a lightweight and fast model, we've chosen the direction of classifying the entire image for the simulator mode of operation. This approach uses a Convolutional Neural Network, which takes a whole image from the front camera as an input and predicts the traffic light state (we've decided to use Red / None prediction classes) as an output. We used the transfer learning technique on the MobileNet architecture with the Tensorflow Image Retraining Example (tutorial: https://goo.gl/HgmiVo, code: https://goo.gl/KdVcMi).
 
 ## Dataset  
 There are multiple datasets, available for model training:  
@@ -69,5 +69,17 @@ nohup python src/retrain.py \
 nohup tensorboard --logdir model/summaries_udacity > model/tensorboard.log 2>&1 &
 ```
 
+### Site Test Mode
+
+For the test-site mode of the traffic-light detection node, we employ the "SSD: Single Shot MultiBox Detection" framework to locate a bounding box around a traffic light. We found the off-the-shelf pre-trained `ssd_mobilenet_v1_coco` version did not perform well under certain lighting conditions, such as bright sunshine. To mitigate, we applied transfer learning using the Tensorflow Object Detection API to fine-tune the model. The training dataset includes camera images from training, reference, and review rosbags. Also, we measured a 9X improvement in inference performance as a result of the fine-tuning.
+
+The V channel of a high-confidence cropped image (converted to HSV color space) is passed to an OpenCV-based simple classifier. The geometric locations where the lights are expected are compared for brightness. The highest mean value in three square regions of interest in the overall rectangle returned by the detector wins. This method proves to be quite robust against image drift (when bounding boxes are less than accurate).
+
+The following image correctly classifies as "red", despite the shift.<br>
+![Robust classification](https://raw.githubusercontent.com/level5-engineers/traffic-light-classification/master/method2/image/out00012-analysis.png) 
+
+Initially, the entire camera image is searched for traffic light patterns. Once a traffic light is found, we create a 300x300 cropping around that position. This improves location finding and confidence ranking in subsequent frames. If a pattern is not found, the system reverts to searching the entire image.
+
 ## Source
 1. Udacity Object Detection Lab
+2. https://becominghuman.ai/traffic-light-detection-tensorflow-api-c75fdbadac62
